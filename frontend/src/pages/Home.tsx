@@ -4,7 +4,7 @@ import { Upload, ArrowRight, BarChart3, Zap, Users, ShieldCheck, Cpu } from 'luc
 import { motion } from 'framer-motion';
 
 const Home = () => {
-  const API_URL = import.meta.env.VITE_API_URL || '';
+  const API_URL = import.meta.env.VITE_API_URL;
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

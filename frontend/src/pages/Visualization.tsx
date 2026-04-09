@@ -33,7 +33,7 @@ const tooltipStyle = {
 };
 
 const Visualization = () => {
-  const API_URL = import.meta.env.VITE_API_URL || '';
+  const API_URL = import.meta.env.VITE_API_URL;
   const { session_id } = useParams<{ session_id: string }>();
   const [segmentData, setSegmentData]   = useState<ChartData | null>(null);
   const [spendingData, setSpendingData] = useState<ChartData | null>(null);
