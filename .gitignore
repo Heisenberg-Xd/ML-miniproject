@@ -48,7 +48,9 @@ uploads/
 *.xlsx
 *.xls
 *.parquet
-*.json
+# Ignore only dataset JSON files
+data/*.json
+uploads/*.json
 # ^ keep tracked JSON configs explicitly if needed:
 !cluster_data.json
 
