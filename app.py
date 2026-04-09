@@ -7,7 +7,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -34,14 +34,8 @@ def home():
     return jsonify({"status": "API running"})
 
 
-@app.route('/upload', methods=['POST', 'OPTIONS'])
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        return response
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
