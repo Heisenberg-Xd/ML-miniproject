@@ -116,7 +116,7 @@ def upload_file():
         session_path = os.path.join(UPLOAD_FOLDER, f'session_{session_id}.csv')
         customer_data.to_csv(session_path, index=False)
 
-        BASE_URL = "https://ml-miniproject-2kyl.onrender.com"
+        BASE_URL = "https://ml-miniproject-2kyf.onrender.com"
         download_url = f"{BASE_URL}/download"
         return jsonify({
             'message': 'File processed successfully!', 
