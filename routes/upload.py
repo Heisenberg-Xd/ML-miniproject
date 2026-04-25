@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -6,6 +7,10 @@ from flask import Blueprint, request, jsonify, send_file
 from services.ml_service import rfm_model, rfm_scaler, rfm_segment_map
 from services.session_store import UPLOAD_FOLDER, load_session
 from config import BASE_URL
+from database import get_connection
+from models import insert_dataset, insert_customers, insert_model_metadata
+
+logger = logging.getLogger(__name__)
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -93,6 +98,34 @@ def upload_file():
         session_path = os.path.join(UPLOAD_FOLDER, f'session_{session_id}.csv')
         customer_df.to_csv(session_path, index=False)
 
+        # ── Step 8: Persist to PostgreSQL (non-blocking) ──────────────────────
+        dataset_id = None
+        try:
+            # Silhouette score — measures cluster quality (−1 to 1, higher is better)
+            from sklearn.metrics import silhouette_score as sk_silhouette
+            sil_score = None
+            if len(rfm) > 1 and rfm['Cluster'].nunique() > 1:
+                sil_score = float(sk_silhouette(rfm_scaled, rfm['Cluster']))
+
+            with get_connection() as conn:
+                if conn is not None:
+                    dataset_id = insert_dataset(
+                        conn,
+                        filename=file.filename,
+                        row_count=len(raw),
+                    )
+                    if dataset_id:
+                        insert_customers(conn, rfm, dataset_id)
+                        insert_model_metadata(
+                            conn,
+                            dataset_id=dataset_id,
+                            model_name='kmeans',
+                            parameters=f'k={rfm_model.n_clusters}',
+                            silhouette_score=sil_score,
+                        )
+        except Exception as db_err:
+            logger.warning(f"[DB] Persistence skipped due to error: {db_err}")
+
         # BASE_URL from config is already imported, avoid shadowing
         return jsonify({
             'message':           'File processed successfully!',
@@ -101,6 +134,7 @@ def upload_file():
             'visualization_url': f'/visualization/{session_id}',
             'total_customers':   int(rfm['Customer_ID'].nunique()),
             'segments_found':    rfm['Segment_Name'].unique().tolist(),
+            'dataset_id':        dataset_id,
         }), 200
 
     except Exception as e:
