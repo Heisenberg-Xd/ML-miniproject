@@ -1,0 +1,18 @@
+{
+  "2": {
+    "Segment_Name": "Champions",
+    "Campaign_Strategy": "VIP rewards, early product access, exclusive loyalty perks"
+  },
+  "3": {
+    "Segment_Name": "Loyal Customers",
+    "Campaign_Strategy": "Upsell premium products, membership programs, referral bonuses"
+  },
+  "0": {
+    "Segment_Name": "Potential Loyalists",
+    "Campaign_Strategy": "Cross-sell complementary products, engagement campaigns, welcome series"
+  },
+  "1": {
+    "Segment_Name": "At Risk / Lost",
+    "Campaign_Strategy": "Win-back campaigns, high-value discounts, re-engagement emails"
+  }
+}
