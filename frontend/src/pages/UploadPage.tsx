@@ -4,6 +4,7 @@ import { Upload, Play } from 'lucide-react';
 import { CelestialSphere } from '../components/ui/celestial-sphere';
 import { WorkspaceSelector } from '../components/WorkspaceSelector';
 import { DatasetSelector } from '../components/DatasetSelector';
+import { getAuthHeaders } from '../utils/api';
 
 const UploadPage = () => {
   const API_URL = import.meta.env.VITE_API_URL;
@@ -38,6 +39,7 @@ const UploadPage = () => {
     try {
       const response = await fetch(`${API_URL}/upload`, { 
         method: 'POST', 
+        headers: getAuthHeaders(),
         body: formData 
       });
       const data = await response.json();

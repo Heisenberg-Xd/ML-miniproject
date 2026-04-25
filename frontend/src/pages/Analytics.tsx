@@ -5,13 +5,14 @@ import {
   PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis, AreaChart, Area, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from 'recharts';
-import { ArrowLeft, Download, TrendingUp, Zap, Users, Target, MessageSquare, BarChart2, FileText, Sparkles, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, TrendingUp, Zap, Users, Target, MessageSquare, BarChart2, FileText, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CelestialSphere } from '../components/ui/celestial-sphere';
 import { DataChat } from '../components/DataChat';
 import { ExecutiveSummary } from '../components/ExecutiveSummary';
 import { StrategyCard, StrategyDetail } from '../components/StrategyCard';
 import type { Strategy } from '../components/StrategyCard';
+import { getAuthHeaders } from '../utils/api';
 
 interface ChartData { labels: string[]; values: number[] }
 interface ScatterPoint { name: string; data: [number, number, string][] }
@@ -51,7 +52,7 @@ const Visualization = () => {
   const fetchStrategy = async (segmentId: number) => {
     setLoadingSegments(prev => new Set(prev).add(segmentId));
     try {
-      const res = await fetch(`${API_URL}/api/strategy/${dataset_id}/${segmentId}`);
+      const res = await fetch(`${API_URL}/api/strategy/${dataset_id}/${segmentId}`, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success) {
         setStrategies(prev => ({ ...prev, [segmentId]: data.strategy }));
@@ -76,11 +77,11 @@ const Visualization = () => {
     (async () => {
       try {
         const [segRes, spendRes, scatterRes, seasonalRes, rfmRes] = await Promise.all([
-          fetch(`${API_URL}/api/segment-counts/${dataset_id}`),
-          fetch(`${API_URL}/api/spending-by-segment/${dataset_id}`),
-          fetch(`${API_URL}/api/recency-value-scatter/${dataset_id}`),
-          fetch(`${API_URL}/api/seasonal-distribution/${dataset_id}`),
-          fetch(`${API_URL}/api/rfm-scores/${dataset_id}`),
+          fetch(`${API_URL}/api/segment-counts/${dataset_id}`, { headers: getAuthHeaders() }),
+          fetch(`${API_URL}/api/spending-by-segment/${dataset_id}`, { headers: getAuthHeaders() }),
+          fetch(`${API_URL}/api/recency-value-scatter/${dataset_id}`, { headers: getAuthHeaders() }),
+          fetch(`${API_URL}/api/seasonal-distribution/${dataset_id}`, { headers: getAuthHeaders() }),
+          fetch(`${API_URL}/api/rfm-scores/${dataset_id}`, { headers: getAuthHeaders() }),
         ]);
         if (segRes.ok)      setSegmentData(await segRes.json());
         if (spendRes.ok)    setSpendingData(await spendRes.json());
