@@ -40,7 +40,7 @@ const TAB_ITEMS: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 const Visualization = () => {
   const API_URL = import.meta.env.VITE_API_URL;
-  const { session_id } = useParams<{ session_id: string }>();
+  const { dataset_id } = useParams<{ dataset_id: string }>();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   // ── Strategy Agent state ──────────────────────────────────────────────────
@@ -51,7 +51,7 @@ const Visualization = () => {
   const fetchStrategy = async (segmentId: number) => {
     setLoadingSegments(prev => new Set(prev).add(segmentId));
     try {
-      const res = await fetch(`${API_URL}/api/strategy/${session_id}/${segmentId}`);
+      const res = await fetch(`${API_URL}/api/strategy/${dataset_id}/${segmentId}`);
       const data = await res.json();
       if (data.success) {
         setStrategies(prev => ({ ...prev, [segmentId]: data.strategy }));
@@ -76,11 +76,11 @@ const Visualization = () => {
     (async () => {
       try {
         const [segRes, spendRes, scatterRes, seasonalRes, rfmRes] = await Promise.all([
-          fetch(`${API_URL}/api/segment-counts/${session_id}`),
-          fetch(`${API_URL}/api/spending-by-segment/${session_id}`),
-          fetch(`${API_URL}/api/recency-value-scatter/${session_id}`),
-          fetch(`${API_URL}/api/seasonal-distribution/${session_id}`),
-          fetch(`${API_URL}/api/rfm-scores/${session_id}`),
+          fetch(`${API_URL}/api/segment-counts/${dataset_id}`),
+          fetch(`${API_URL}/api/spending-by-segment/${dataset_id}`),
+          fetch(`${API_URL}/api/recency-value-scatter/${dataset_id}`),
+          fetch(`${API_URL}/api/seasonal-distribution/${dataset_id}`),
+          fetch(`${API_URL}/api/rfm-scores/${dataset_id}`),
         ]);
         if (segRes.ok)      setSegmentData(await segRes.json());
         if (spendRes.ok)    setSpendingData(await spendRes.json());
@@ -90,7 +90,7 @@ const Visualization = () => {
       } catch (err) { console.error('Fetch error', err); }
       finally { setIsLoading(false); }
     })();
-  }, [session_id, API_URL]);
+  }, [dataset_id, API_URL]);
 
   if (isLoading) {
     return (
@@ -132,7 +132,7 @@ const Visualization = () => {
               <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-white">Customer Analytics</h1>
               <p className="text-neutral-500 font-medium flex items-center gap-2 text-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                Session: <span className="font-mono text-neutral-400">{session_id}</span>
+                Dataset: <span className="font-mono text-neutral-400">{dataset_id}</span>
               </p>
             </div>
           </div>
@@ -495,7 +495,7 @@ const Visualization = () => {
         {activeTab === 'chat' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="max-w-3xl mx-auto">
-              <DataChat sessionId={session_id} apiUrl={API_URL} />
+              <DataChat datasetId={dataset_id} apiUrl={API_URL} />
             </div>
           </motion.div>
         )}
@@ -503,7 +503,7 @@ const Visualization = () => {
         {/* ── TAB: EXECUTIVE SUMMARY ────────────────────────────────────────── */}
         {activeTab === 'summary' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <ExecutiveSummary sessionId={session_id} apiUrl={API_URL} />
+            <ExecutiveSummary datasetId={dataset_id} apiUrl={API_URL} />
           </motion.div>
         )}
 

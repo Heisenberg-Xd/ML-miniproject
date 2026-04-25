@@ -9,10 +9,10 @@ function App() {
       <Routes>
         <Route path="/"                          element={<Home />} />
         <Route path="/upload"                    element={<UploadPage />} />
-        <Route path="/visualization/:session_id" element={<Analytics />} />
         
-        {/* Dashboard Route */}
-        <Route path="/dashboard/:session_id" element={<Analytics />} />
+        {/* Dashboard Routes using dataset_id */}
+        <Route path="/dashboard/:dataset_id"     element={<Analytics />} />
+        <Route path="/visualization/:dataset_id" element={<Analytics />} />
         
         {/* Fallback for missing routes */}
         <Route path="*" element={<Navigate to="/" replace />} />

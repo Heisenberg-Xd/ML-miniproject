@@ -10,7 +10,7 @@ interface Message {
 }
 
 interface DataChatProps {
-  sessionId: string | undefined;
+  datasetId: string | undefined;
   apiUrl: string;
 }
 
@@ -28,7 +28,7 @@ const tooltipStyle = {
   borderRadius: '8px',
 };
 
-export const DataChat = ({ sessionId, apiUrl }: DataChatProps) => {
+export const DataChat = ({ datasetId, apiUrl }: DataChatProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -60,7 +60,7 @@ export const DataChat = ({ sessionId, apiUrl }: DataChatProps) => {
       const res = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, question }),
+        body: JSON.stringify({ dataset_id: datasetId, question }),
       });
       const data = await res.json();
       const aiMsg: Message = {

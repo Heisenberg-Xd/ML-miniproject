@@ -65,16 +65,16 @@ const RFMBar = ({ label, value }: { label: string; value: number }) => (
   </div>
 );
 
-export const ExecutiveSummary = ({ sessionId, apiUrl }: ExecutiveSummaryProps) => {
+export const ExecutiveSummary = ({ datasetId, apiUrl }: ExecutiveSummaryProps) => {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!datasetId) return;
     (async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/executive-summary/${sessionId}`);
+        const res = await fetch(`${apiUrl}/api/executive-summary/${datasetId}`);
         if (!res.ok) throw new Error('Failed to load summary');
         setSummary(await res.json());
       } catch (e) {
@@ -83,7 +83,7 @@ export const ExecutiveSummary = ({ sessionId, apiUrl }: ExecutiveSummaryProps) =
         setIsLoading(false);
       }
     })();
-  }, [sessionId, apiUrl]);
+  }, [datasetId, apiUrl]);
 
   if (isLoading) {
     return (
