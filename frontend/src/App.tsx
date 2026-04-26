@@ -3,13 +3,14 @@ import { AuthPage } from './pages/AuthPage';
 import UploadPage from './pages/UploadPage';
 import Analytics from './pages/Analytics';
 import { RequireAuth } from './components/RequireAuth';
+import LandingRedirect from './pages/LandingRedirect';
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Root → Auth */}
-        <Route path="/" element={<Navigate to="/auth" replace />} />
+        {/* Root → Framer landing (external) */}
+        <Route path="/" element={<LandingRedirect />} />
 
         {/* Auth (public) */}
         <Route path="/auth" element={<AuthPage />} />
