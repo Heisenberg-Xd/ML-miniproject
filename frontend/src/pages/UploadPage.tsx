@@ -47,7 +47,8 @@ const UploadPage = () => {
         // Redirection to dashboard with dataset_id
         window.location.href = `/dashboard/${data.dataset_id}`;
       } else {
-        setError(data.error || 'Upload failed');
+        const details = data?.details ? `\n${JSON.stringify(data.details, null, 2)}` : '';
+        setError(`${data.error || 'Upload failed'}${details}`);
       }
     } catch {
       setError('Connection error');
@@ -134,7 +135,9 @@ const UploadPage = () => {
 
               {error && (
                 <div className="p-4 mb-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm max-w-2xl w-full text-center">
-                  {error}
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm text-red-400">
+                    {error}
+                  </pre>
                 </div>
               )}
 
