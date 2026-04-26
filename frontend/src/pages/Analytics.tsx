@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { ArrowLeft, Download, TrendingUp, Zap, Users, Target, MessageSquare, BarChart2, FileText, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { CelestialSphere } from '../components/ui/celestial-sphere';
+import { AppBackground } from '../components/ui/AppBackground';
 import { DataChat } from '../components/DataChat';
 import { ExecutiveSummary } from '../components/ExecutiveSummary';
 import { StrategyCard, StrategyDetail } from '../components/StrategyCard';
@@ -117,9 +117,7 @@ const Visualization = () => {
 
   return (
     <div className="relative min-h-screen bg-black text-neutral-200 font-sans selection:bg-white/20 overflow-hidden">
-      <div className="absolute inset-0 z-0">
-        <CelestialSphere className="w-full h-full opacity-60 mix-blend-screen" />
-      </div>
+      <AppBackground />
       <div className="relative z-10 p-6 md:p-12">
 
         {/* Header */}
