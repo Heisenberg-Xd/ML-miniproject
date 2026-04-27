@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file
 from sqlalchemy import text
-from services.ml_service import rfm_model, rfm_scaler, rfm_segment_map
+from services.ml_service import auto_cluster_rfm, rfm_segment_map
 from services.session_store import UPLOAD_FOLDER, load_session
 from config import BASE_URL
 from database import get_connection
@@ -254,30 +254,29 @@ def upload_file(user_id):
         rfm = raw.groupby('customer_id').agg(**agg_dict).reset_index()
 
         rfm_features = ['Recency', 'Frequency', 'Monetary']
-        active_model = rfm_model
-        active_scaler = rfm_scaler
-        active_segment_map = rfm_segment_map
-
-        # ── Step 3: Scale & predict (fallback to on-the-fly training) ────────
-        if active_scaler is None or active_model is None:
-            from sklearn.cluster import KMeans
-            from sklearn.preprocessing import StandardScaler
-
-            active_scaler = StandardScaler()
-            rfm_scaled = active_scaler.fit_transform(rfm[rfm_features])
-
-            n_customers = len(rfm)
-            if n_customers < 2:
-                rfm['Cluster'] = 0
-                active_segment_map = _build_fallback_segment_map([0])
-            else:
-                n_clusters = min(4, n_customers)
-                active_model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-                rfm['Cluster'] = active_model.fit_predict(rfm_scaled)
-                active_segment_map = _build_fallback_segment_map(rfm['Cluster'].unique())
+        # ── Step 3: Auto-select k and cluster (silhouette + elbow) ───────────
+        labels, active_scaler, active_model, clustering_diag = auto_cluster_rfm(
+            rfm_df=rfm,
+            feature_cols=rfm_features,
+            min_k=2,
+            max_k=10,
+            random_state=42,
+        )
+        rfm_scaled = active_scaler.transform(rfm[rfm_features])
+        rfm['Cluster'] = labels
+        selected_k = int(clustering_diag.get("selected_k", max(1, rfm["Cluster"].nunique())))
+        logger.info(
+            "[ML] Auto-k selected_k=%s method=%s elbow_k=%s candidates=%s",
+            selected_k,
+            clustering_diag.get("selection_method"),
+            clustering_diag.get("elbow_k"),
+            len(clustering_diag.get("candidates", [])),
+        )
+        map_keys = set(rfm_segment_map.keys())
+        if selected_k == len(map_keys) and map_keys == {str(i) for i in range(selected_k)}:
+            active_segment_map = rfm_segment_map
         else:
-            rfm_scaled = active_scaler.transform(rfm[rfm_features])
-            rfm['Cluster'] = active_model.predict(rfm_scaled)
+            active_segment_map = _build_fallback_segment_map(rfm['Cluster'].unique())
 
         # ── Step 4: RFM quintile scoring (1-5) ───────────────────────────────
         def score_quintile(series, ascending=True):
@@ -323,8 +322,8 @@ def upload_file(user_id):
         try:
             # Silhouette score — measures cluster quality (−1 to 1, higher is better)
             from sklearn.metrics import silhouette_score as sk_silhouette
-            sil_score = None
-            if len(rfm) > 1 and rfm['Cluster'].nunique() > 1:
+            sil_score = clustering_diag.get("silhouette_score")
+            if sil_score is None and len(rfm) > 1 and rfm['Cluster'].nunique() > 1:
                 sil_score = float(sk_silhouette(rfm_scaled, rfm['Cluster']))
 
             with get_connection() as conn:
@@ -342,7 +341,10 @@ def upload_file(user_id):
                             conn,
                             dataset_id=dataset_id,
                             model_name='kmeans',
-                            parameters=f'k={getattr(active_model, "n_clusters", 1)}',
+                            parameters=(
+                                f'k={selected_k};selection={clustering_diag.get("selection_method")};'
+                                f'elbow_k={clustering_diag.get("elbow_k")}'
+                            ),
                             silhouette_score=sil_score,
                         )
         except Exception as db_err:
@@ -356,6 +358,9 @@ def upload_file(user_id):
             'visualization_url': f'/visualization/{session_id}',
             'total_customers':   int(rfm['customer_id'].nunique()),
             'segments_found':    rfm['Segment_Name'].unique().tolist(),
+            'selected_k':        selected_k,
+            'k_selection_method': clustering_diag.get("selection_method"),
+            'elbow_k':           clustering_diag.get("elbow_k"),
             'column_mapping':    column_mapping,
             'dataset_id':        dataset_id,
             'workspace_id':      workspace_id
