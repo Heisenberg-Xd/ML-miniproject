@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from flask import Blueprint, request, jsonify
 from services.gemini_service import gemini_client, gemini_generate
-from services.cache import get_cache, set_cache
+from services.cache import get_cache, set_cache, cached_response
 
 from database import get_connection, text
 from utils.auth import login_required
@@ -80,7 +80,7 @@ def chat_query(user_id):
     cache_key = f"ai:{dataset_id}:chat:{q_hash}"
     cached = get_cache(cache_key)
     if cached:
-        return jsonify(cached)
+        return cached_response(cached, hit=True)
 
     per_customer, err = get_customers_df(dataset_id, user_id)
     if err:
@@ -153,7 +153,7 @@ Do NOT mention pandas, dataframes, or code."""
                     'powered_by': 'gemini',
                 }
                 set_cache(cache_key, res, ttl=600)
-                return jsonify(res)
+                return cached_response(res, hit=False)
             except Exception as e:
                 print(f"Gemini compound error: {e}")
                 # fall through to rule-based
@@ -183,7 +183,7 @@ Give a concrete, actionable answer in 3-5 sentences.
                     'powered_by': 'gemini',
                 }
                 set_cache(cache_key, res, ttl=600)
-                return jsonify(res)
+                return cached_response(res, hit=False)
             except Exception as e:
                 print(f"Gemini advisory error: {e}")
                 # fall through to rule-based advisory
@@ -254,7 +254,7 @@ Include specific numbers. Do not mention code, pandas, or dataframes."""
                     'powered_by': 'gemini',
                 }
                 set_cache(cache_key, res, ttl=600)
-                return jsonify(res)
+                return cached_response(res, hit=False)
 
             except Exception as e:
                 print(f"Gemini data-query error: {e}")
@@ -344,7 +344,7 @@ Include specific numbers. Do not mention code, pandas, or dataframes."""
 
     res = {'answer': answer, 'data': None, 'query': None, 'powered_by': 'rule-based'}
     set_cache(cache_key, res, ttl=600)
-    return jsonify(res)
+    return cached_response(res, hit=False)
 
 
 # ── Executive Summary ─────────────────────────────────────────────────────────
@@ -354,7 +354,7 @@ def executive_summary(user_id, dataset_id):
     cache_key = f"ai:{dataset_id}:exec_summary"
     cached = get_cache(cache_key)
     if cached:
-        return jsonify(cached)
+        return cached_response(cached, hit=True)
 
     per_customer, err = get_customers_df(dataset_id, user_id)
     if err:
@@ -525,7 +525,7 @@ Return only the sentence."""
             'ai_powered': ai_headline is not None,
         }
         set_cache(cache_key, res, ttl=600)
-        return jsonify(res)
+        return cached_response(res, hit=False)
 
     except Exception as e:
         import traceback
@@ -540,7 +540,7 @@ def strategy_agent(user_id, dataset_id, segment_id):
     cache_key = f"ai:{dataset_id}:strategy:{segment_id}"
     cached = get_cache(cache_key)
     if cached:
-        return jsonify({'success': True, 'strategy': cached})
+        return cached_response({'success': True, 'strategy': cached}, hit=True)
 
     df, err = get_customers_df(dataset_id, user_id)
     if err:
@@ -681,7 +681,7 @@ Generate the marketing strategy. Return ONLY the JSON object.
             }
 
         set_cache(cache_key, strategy, ttl=600)
-        return jsonify({'success': True, 'strategy': strategy})
+        return cached_response({'success': True, 'strategy': strategy}, hit=False)
 
     except Exception as e:
         import traceback

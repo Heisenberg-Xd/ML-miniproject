@@ -1,32 +1,31 @@
 import time
-import logging
-
-logger = logging.getLogger(__name__)
+import sys
+from flask import jsonify
 
 # In-memory store. Easy to replace with Redis later.
 CACHE = {}
 
-def set_cache(key: str, value: any, ttl: int = 300):
+def set_cache(key: str, value: any, ttl: int = 600):
     """Store an item in the cache with a Time-To-Live (in seconds)."""
     CACHE[key] = {
         "value": value,
         "expiry": time.time() + ttl
     }
-    logger.debug(f"[CACHE SET] {key} (TTL: {ttl}s)")
+    print(f"[CACHE SET] {key}")
 
 def get_cache(key: str) -> any:
     """Retrieve an item from the cache if it hasn't expired."""
     data = CACHE.get(key)
     if not data:
-        logger.debug(f"[CACHE MISS] {key}")
+        print(f"[CACHE MISS] {key}")
         return None
     
     if time.time() > data["expiry"]:
-        logger.debug(f"[CACHE EXPIRED] {key}")
+        print(f"[CACHE MISS] {key}")
         del CACHE[key]
         return None
         
-    logger.debug(f"[CACHE HIT] {key}")
+    print(f"[CACHE HIT] {key}")
     return data["value"]
 
 def clear_cache(prefix: str = None):
@@ -35,14 +34,14 @@ def clear_cache(prefix: str = None):
         keys_to_delete = [k for k in CACHE if k.startswith(prefix)]
         for k in keys_to_delete:
             del CACHE[k]
-        logger.debug(f"[CACHE CLEARED] Prefix: {prefix} ({len(keys_to_delete)} keys removed)")
+        print(f"[CACHE CLEAR] prefix={prefix}")
     else:
-        logger.debug(f"[CACHE CLEARED] All keys removed")
+        print(f"[CACHE CLEAR] all")
         CACHE.clear()
 
 def get_cache_status() -> dict:
     """Return diagnostic info about the cache."""
-    active_keys = 0
+    active_keys = []
     expired_keys = 0
     now = time.time()
     
@@ -51,10 +50,19 @@ def get_cache_status() -> dict:
             expired_keys += 1
             del CACHE[k]
         else:
-            active_keys += 1
+            active_keys.append(k)
+            
+    # approximate size
+    memory_usage = sys.getsizeof(CACHE)
             
     return {
-        "active_keys": active_keys,
-        "expired_keys_cleaned": expired_keys,
-        "total_memory_slots": len(CACHE)
+        "total_keys": len(active_keys),
+        "keys": active_keys,
+        "memory_usage": f"{memory_usage} bytes"
     }
+
+def cached_response(data: dict | list, hit: bool):
+    """Wrap data in a Flask jsonify response and inject X-Cache header."""
+    response = jsonify(data)
+    response.headers["X-Cache"] = "HIT" if hit else "MISS"
+    return response

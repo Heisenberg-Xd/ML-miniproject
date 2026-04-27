@@ -68,6 +68,7 @@ export const DataChat: React.FC<DataChatProps> = ({ datasetId }) => {
           question: question,
         }),
       });
+      console.log("[Chat] Cache:", res.headers.get("X-Cache"));
       const data = await res.json();
       const aiMsg: Message = {
         role: 'assistant',

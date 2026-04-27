@@ -52,6 +52,7 @@ def create_app():
             }
         },
         supports_credentials=True,
+        expose_headers=["X-Cache"]
     )
     app.register_blueprint(upload_bp)
     app.register_blueprint(charts_bp)

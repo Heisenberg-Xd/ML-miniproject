@@ -76,6 +76,7 @@ export const ExecutiveSummary = ({ datasetId, apiUrl }: ExecutiveSummaryProps) =
     (async () => {
       try {
         const res = await fetchWithAuth(`/api/executive-summary/${datasetId}`);
+        console.log("[ExecSummary] Cache:", res.headers.get("X-Cache"));
         if (!res.ok) throw new Error('Failed to fetch summary');
         const data = await res.json();
         setSummary(data);

@@ -73,6 +73,7 @@ const Visualization = () => {
     setLoadingSegments(prev => new Set(prev).add(segmentId));
     try {
       const res = await fetch(`${API_URL}/api/strategy/${dataset_id}/${segmentId}`, { headers: getAuthHeaders() });
+      console.log(`[Strategy ${segmentId}] Cache:`, res.headers.get("X-Cache"));
       const data = await res.json();
       if (data.success) {
         setStrategies(prev => ({ ...prev, [segmentId]: data.strategy }));
@@ -106,6 +107,15 @@ const Visualization = () => {
         fetch(`${API_URL}/api/seasonal-distribution/${dataset_id}`, { headers: getAuthHeaders() }),
         fetch(`${API_URL}/api/rfm-scores/${dataset_id}`, { headers: getAuthHeaders() }),
       ]);
+      
+      console.log("[Charts] Cache Headers:", {
+        "segment-counts": segRes.headers.get("X-Cache"),
+        "spending-by-segment": spendRes.headers.get("X-Cache"),
+        "recency-value-scatter": scatterRes.headers.get("X-Cache"),
+        "seasonal-distribution": seasonalRes.headers.get("X-Cache"),
+        "rfm-scores": rfmRes.headers.get("X-Cache")
+      });
+
       if (segRes.ok)      setSegmentData(await segRes.json());
       if (spendRes.ok)    setSpendingData(await spendRes.json());
       if (scatterRes.ok)  setScatterData(await scatterRes.json());
