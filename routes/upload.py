@@ -188,8 +188,11 @@ def upload_file(user_id):
     # Verify workspace belongs to user
     with get_connection() as conn:
         if conn is None:
-             return jsonify({'error': 'Database connection failed'}), 500
-        ws = conn.execute(text("SELECT id FROM workspaces WHERE id = :id AND user_id = :user_id"), {"id": workspace_id, "user_id": user_id}).fetchone()
+            return jsonify({'error': 'Database connection failed'}), 500
+        ws = conn.execute(
+            text("SELECT id FROM workspaces WHERE id = :id AND user_id = :user_id"),
+            {"id": workspace_id, "user_id": user_id}
+        ).fetchone()
         if not ws:
             return jsonify({'error': 'Workspace not found or unauthorized'}), 403
 
@@ -198,167 +201,73 @@ def upload_file(user_id):
     file.save(filepath)
 
     try:
-        # ── Step 1: Load ──────────────────────────────────────────────────────
+        # ── Load and map columns ──────────────────────────────────────────────
         raw = pd.read_csv(filepath)
         raw, column_mapping = map_sales_columns(raw)
 
+        # Basic validation feedback
         invalid_counts = {
-            "customer_id_null_rows": int(raw["customer_id"].isna().sum()),
-            "transaction_date_invalid_rows": int(pd.to_datetime(raw["transaction_date"], errors="coerce").isna().sum()),
-            "amount_invalid_rows": int(pd.to_numeric(raw["amount"], errors="coerce").isna().sum()),
+            "customer_id_null_rows":          int(raw["customer_id"].isna().sum()),
+            "transaction_date_invalid_rows":  int(pd.to_datetime(raw["transaction_date"], errors="coerce").isna().sum()),
+            "amount_invalid_rows":            int(pd.to_numeric(raw["amount"], errors="coerce").isna().sum()),
         }
-
         if raw["customer_id"].isna().all():
-            return _validation_error(
-                "Mapped customer_id is empty for all rows.",
-                {"column_mapping": column_mapping, "invalid_counts": invalid_counts},
-            )
-
-        raw['transaction_date'] = pd.to_datetime(raw['transaction_date'], errors='coerce')
-        if raw['transaction_date'].isna().all():
-            return _validation_error(
-                "Mapped transaction_date could not be parsed as dates.",
-                {"column_mapping": column_mapping, "invalid_counts": invalid_counts},
-            )
-
+            return _validation_error("Mapped customer_id is empty for all rows.",
+                                     {"column_mapping": column_mapping, "invalid_counts": invalid_counts})
+        if pd.to_datetime(raw["transaction_date"], errors="coerce").isna().all():
+            return _validation_error("Mapped transaction_date could not be parsed as dates.",
+                                     {"column_mapping": column_mapping, "invalid_counts": invalid_counts})
         raw["amount"] = pd.to_numeric(raw["amount"], errors="coerce")
         if raw["amount"].isna().all():
-            return _validation_error(
-                "Mapped amount is non-numeric or empty for all rows.",
-                {"column_mapping": column_mapping, "invalid_counts": invalid_counts},
-            )
+            return _validation_error("Mapped amount is non-numeric or empty for all rows.",
+                                     {"column_mapping": column_mapping, "invalid_counts": invalid_counts})
 
-        original_row_count = len(raw)
-        raw = raw.dropna(subset=['customer_id', 'transaction_date', 'amount']).copy()
-        if raw.empty:
-            return _validation_error(
-                "No valid rows left after cleaning required fields.",
-                {
-                    "column_mapping": column_mapping,
-                    "invalid_counts": invalid_counts,
-                    "original_row_count": original_row_count,
-                },
-            )
-
-        today = datetime.now()
-
-        # ── Step 2: RFM feature engineering per customer ──────────────────────
-        agg_dict = {
-            'Recency': ('transaction_date', lambda x: (today - x.max()).days),
-            'Frequency': ('transaction_date', 'count'),
-            'Monetary': ('amount', 'sum')
-        }
-        if 'season' in raw.columns:
-            agg_dict['season'] = ('season', lambda x: x.mode()[0] if not x.mode().empty else 'Unknown')
-
-        rfm = raw.groupby('customer_id').agg(**agg_dict).reset_index()
-
-        rfm_features = ['Recency', 'Frequency', 'Monetary']
-        active_model = rfm_model
-        active_scaler = rfm_scaler
-        active_segment_map = rfm_segment_map
-
-        # ── Step 3: Scale & predict (fallback to on-the-fly training) ────────
-        if active_scaler is None or active_model is None:
-            from sklearn.cluster import KMeans
-            from sklearn.preprocessing import StandardScaler
-
-            active_scaler = StandardScaler()
-            rfm_scaled = active_scaler.fit_transform(rfm[rfm_features])
-
-            n_customers = len(rfm)
-            if n_customers < 2:
-                rfm['Cluster'] = 0
-                active_segment_map = _build_fallback_segment_map([0])
-            else:
-                n_clusters = min(4, n_customers)
-                active_model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-                rfm['Cluster'] = active_model.fit_predict(rfm_scaled)
-                active_segment_map = _build_fallback_segment_map(rfm['Cluster'].unique())
-        else:
-            rfm_scaled = active_scaler.transform(rfm[rfm_features])
-            rfm['Cluster'] = active_model.predict(rfm_scaled)
-
-        # ── Step 4: RFM quintile scoring (1-5) ───────────────────────────────
-        def score_quintile(series, ascending=True):
-            pct = series.rank(method='average', pct=True, ascending=ascending)
-            return np.ceil(pct * 5).clip(1, 5).astype(int)
-
-        rfm['R_Score'] = score_quintile(rfm['Recency'],   ascending=False) # lower recency = better
-        rfm['F_Score'] = score_quintile(rfm['Frequency'], ascending=True)  # higher freq = better
-        rfm['M_Score'] = score_quintile(rfm['Monetary'],  ascending=True)  # higher monetary = better
-        rfm['RFM_Score'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
-
-        # ── Step 5: Map cluster → segment name ───────────────────────────────
-        rfm['Segment_Name']      = rfm['Cluster'].apply(
-            lambda c: active_segment_map.get(str(c), {}).get('Segment_Name', f'Segment {c}'))
-        rfm['Campaign_Strategy'] = rfm['Cluster'].apply(
-            lambda c: active_segment_map.get(str(c), {}).get('Campaign_Strategy', 'Standard engagement'))
-
-        # ── Step 6: Merge back onto raw (row-level, one row per transaction) ──
-        customer_df = raw.merge(
-            rfm[['customer_id','Recency','Frequency','Monetary',
-                  'R_Score','F_Score','M_Score','RFM_Score',
-                  'Cluster','Segment_Name','Campaign_Strategy']],
-            on='customer_id', how='left'
-        )
-
-        # Keep extra columns if present
-        if 'quantity' in customer_df.columns:
-            customer_df['Avg_Order_Value'] = (
-                customer_df['amount'] / pd.to_numeric(customer_df['quantity'], errors='coerce').fillna(0).replace(0, 1)
-            )
-
-        # ── Step 7: Save outputs ──────────────────────────────────────────────
-        output_path  = os.path.join(UPLOAD_FOLDER, 'output.csv')
-        customer_df.to_csv(output_path, index=False)
-
-        session_id   = datetime.now().strftime("%Y%m%d%H%M%S")
-        session_path = os.path.join(UPLOAD_FOLDER, f'session_{session_id}.csv')
-        customer_df.to_csv(session_path, index=False)
-
-        # ── Step 8: Persist to PostgreSQL (non-blocking) ──────────────────────
-        dataset_id = None
-        
+        # ── Create manual data_source entry ───────────────────────────────────
+        source_id = None
         try:
-            # Silhouette score — measures cluster quality (−1 to 1, higher is better)
-            from sklearn.metrics import silhouette_score as sk_silhouette
-            sil_score = None
-            if len(rfm) > 1 and rfm['Cluster'].nunique() > 1:
-                sil_score = float(sk_silhouette(rfm_scaled, rfm['Cluster']))
-
+            from models import insert_data_source
             with get_connection() as conn:
                 if conn is not None:
-                    dataset_id = insert_dataset(
+                    source_id = insert_data_source(
                         conn,
-                        filename=file.filename,
-                        row_count=len(raw),
-                        workspace_id=int(workspace_id) if workspace_id else None
+                        workspace_id=int(workspace_id),
+                        source_type="manual",
+                        config={"original_filename": file.filename},
+                        auto_sync_enabled=False,
                     )
-                    if dataset_id:
-                        rfm_db = rfm.rename(columns={'customer_id': 'Customer_ID', 'season': 'Season'})
-                        insert_customers(conn, rfm_db, dataset_id)
-                        insert_model_metadata(
-                            conn,
-                            dataset_id=dataset_id,
-                            model_name='kmeans',
-                            parameters=f'k={getattr(active_model, "n_clusters", 1)}',
-                            silhouette_score=sil_score,
-                        )
-        except Exception as db_err:
-            logger.warning(f"[DB] Persistence skipped due to error: {db_err}")
+        except Exception as src_err:
+            logger.warning(f"[Upload] Could not create data_source entry: {src_err}")
 
-        # BASE_URL from config is already imported, avoid shadowing
+        # ── Save output CSV for backward-compat download ───────────────────────
+        session_id = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        # ── Run clustering pipeline ───────────────────────────────────────────
+        from services.clustering_service import run_clustering
+        result = run_clustering(
+            df=raw,
+            workspace_id=int(workspace_id),
+            filename=file.filename,
+            source_id=source_id,
+            ingestion_type="manual",
+        )
+
+        # Save output CSV for /download endpoint (backward compat)
+        output_path  = os.path.join(UPLOAD_FOLDER, 'output.csv')
+        session_path = os.path.join(UPLOAD_FOLDER, f'session_{session_id}.csv')
+        raw.to_csv(output_path, index=False)
+        raw.to_csv(session_path, index=False)
+
         return jsonify({
             'message':           'File processed successfully!',
             'download_url':      f'{BASE_URL}/download',
             'session_id':        session_id,
             'visualization_url': f'/visualization/{session_id}',
-            'total_customers':   int(rfm['customer_id'].nunique()),
-            'segments_found':    rfm['Segment_Name'].unique().tolist(),
+            'total_customers':   result.get("total_customers"),
+            'segments_found':    result.get("segments_found"),
             'column_mapping':    column_mapping,
-            'dataset_id':        dataset_id,
-            'workspace_id':      workspace_id
+            'dataset_id':        result.get("dataset_id"),
+            'workspace_id':      workspace_id,
+            'source_id':         source_id,
         }), 200
 
     except Exception as e:
