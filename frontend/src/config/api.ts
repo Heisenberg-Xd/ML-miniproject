@@ -1,2 +1,7 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:10000";
-console.log("API_BASE =", API_BASE);
+const BASE = import.meta.env.VITE_API_BASE;
+
+if (!BASE) {
+  throw new Error("VITE_API_BASE is not defined in production");
+}
+
+export const API_BASE = BASE;

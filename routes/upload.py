@@ -537,7 +537,7 @@ def upload_file(user_id):
 
         return jsonify({
             'message':           'File processed successfully!',
-            'download_url':      f'{getattr(settings, "BASE_URL", "http://localhost:10000")}/download',
+            'download_url':      f'{getattr(settings, "BASE_URL")}/download',
             'session_id':        session_id,
             'visualization_url': f'/visualization/{session_id}',
             'total_customers':   result.get("total_customers"),
