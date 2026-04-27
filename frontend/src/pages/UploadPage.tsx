@@ -8,6 +8,7 @@ import { DatasetSelector } from '../components/DatasetSelector';
 import { DataSourcesPanel } from '../components/DataSourcesPanel';
 import { WebhookCard } from '../components/WebhookCard';
 import { getAuthHeaders } from '../utils/api';
+import { LogoutButton } from '../components/LogoutButton';
 
 const UploadPage = () => {
   const API_URL = import.meta.env.VITE_API_URL;
@@ -116,6 +117,10 @@ const UploadPage = () => {
   return (
     <div className="relative min-h-screen bg-black text-neutral-200 font-sans selection:bg-white/20 overflow-hidden flex flex-col">
       <AppBackground />
+
+      <div className="fixed top-6 right-6 z-20">
+        <LogoutButton />
+      </div>
 
       <div className="relative z-10 max-w-4xl w-full mx-auto p-8 pt-24 pb-32 flex-1 flex flex-col items-center">
         {/* Header section */}

@@ -9,6 +9,7 @@ import { ArrowLeft, Download, TrendingUp, Zap, Users, Target, MessageSquare, Bar
 import { motion } from 'framer-motion';
 import { AppBackground } from '../components/ui/AppBackground';
 import { DataChat } from '../components/DataChat';
+import { LogoutButton } from '../components/LogoutButton';
 import { ExecutiveSummary } from '../components/ExecutiveSummary';
 import { StrategyCard, StrategyDetail } from '../components/StrategyCard';
 import type { Strategy } from '../components/StrategyCard';
@@ -221,6 +222,7 @@ const Visualization = () => {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <LogoutButton />
             <a href={`${API_URL}/download`} className="px-5 py-2.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-all font-medium text-sm flex items-center gap-2">
               <Download className="w-4 h-4" /> Export CSV
             </a>
