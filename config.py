@@ -35,8 +35,13 @@ class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     BASE_URL       = os.getenv("BASE_URL", "http://localhost:10000")
     PORT           = int(os.getenv("PORT", 10000))
-    DATABASE_URL   = os.getenv("DATABASE_URL", "")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default-dev-secret-key")
+    FRONTEND_URL   = os.getenv("FRONTEND_URL", "")
+
+    # Normalize DATABASE_URL: Render may issue the legacy postgres:// scheme
+    # which SQLAlchemy 1.4+ does not accept — fix it transparently.
+    _raw_db_url    = os.getenv("DATABASE_URL", "")
+    DATABASE_URL   = _raw_db_url.replace("postgres://", "postgresql://", 1) if _raw_db_url else ""
 
     # ── Clustering Optimizer ─────────────────────────────────────────────────
     OPTIMIZER_ENABLED    = True
@@ -83,6 +88,7 @@ PORT                           = settings.PORT
 DATABASE_URL                   = settings.DATABASE_URL
 JWT_SECRET_KEY                 = settings.JWT_SECRET_KEY
 GEMINI_API_KEY                 = settings.GEMINI_API_KEY
+FRONTEND_URL                   = settings.FRONTEND_URL
 UPLOAD_FOLDER                  = settings.UPLOAD_FOLDER
 MODEL_DIR                      = settings.MODEL_DIR
 RFM_MODEL_PATH                 = settings.RFM_MODEL_PATH

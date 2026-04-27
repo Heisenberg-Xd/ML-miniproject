@@ -7,7 +7,7 @@ from routes.ai import ai_bp
 from routes.workspaces import workspace_bp
 from routes.auth import auth_bp
 from routes.integrations import integrations_bp
-from database import init_db
+from database import init_db, engine
 from scheduler import start_scheduler
 
 
@@ -41,16 +41,19 @@ validate_config()
 def create_app():
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+    # Build allowed origins: always include localhost for dev.
+    # In production, set FRONTEND_URL to your deployed frontend domain.
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+    if settings.FRONTEND_URL:
+        allowed_origins.append(settings.FRONTEND_URL.rstrip("/"))
+
     CORS(
         app,
-        resources={
-            r"/*": {
-                "origins": [
-                    "http://localhost:5173",
-                    "http://127.0.0.1:5173",
-                ]
-            }
-        },
+        resources={r"/*": {"origins": allowed_origins}},
         supports_credentials=True,
         expose_headers=["X-Cache"]
     )
@@ -60,6 +63,21 @@ def create_app():
     app.register_blueprint(workspace_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(integrations_bp)
+
+    @app.route('/api/health', methods=['GET'])
+    def health_check():
+        """Lightweight liveness + DB connectivity probe."""
+        from flask import jsonify
+        from sqlalchemy import text as _text
+        db_status = "disconnected"
+        if engine is not None:
+            try:
+                with engine.connect() as _conn:
+                    _conn.execute(_text("SELECT 1"))
+                db_status = "connected"
+            except Exception as exc:
+                db_status = f"error: {type(exc).__name__}"
+        return jsonify({"status": "ok", "database": db_status})
 
     @app.route('/api/cache/status', methods=['GET'])
     def cache_status():
