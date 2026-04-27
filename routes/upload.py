@@ -12,6 +12,7 @@ from services.ml_service import auto_cluster_rfm, rfm_segment_map
 from services.model_optimizer import run_optimizer, apply_recommended_model
 from services.session_store import UPLOAD_FOLDER, load_session
 from config import settings
+from services.cache import clear_cache
 
 from database import get_connection
 from models import insert_dataset, insert_customers, insert_model_metadata
@@ -428,6 +429,9 @@ def optimizer_apply(user_id, dataset_id):
             }
         ), 500
 
+    # Invalidate cache since clustering labels changed!
+    clear_cache(f"dashboard:{dataset_id}:")
+    clear_cache(f"ai:{dataset_id}:")
     return jsonify(
         {
             "success": True,
@@ -525,6 +529,11 @@ def upload_file(user_id):
         session_path = os.path.join(UPLOAD_FOLDER, f'session_{session_id}.csv')
         raw.to_csv(output_path, index=False)
         raw.to_csv(session_path, index=False)
+
+        # Invalidate any cache if the ID somehow existed (safety measure)
+        if result.get("dataset_id"):
+            clear_cache(f"dashboard:{result['dataset_id']}:")
+            clear_cache(f"ai:{result['dataset_id']}:")
 
         return jsonify({
             'message':           'File processed successfully!',

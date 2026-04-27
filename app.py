@@ -59,10 +59,16 @@ def create_app():
     app.register_blueprint(workspace_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(integrations_bp)
+
+    @app.route('/api/cache/status', methods=['GET'])
+    def cache_status():
+        from services.cache import get_cache_status
+        return get_cache_status()
+
     init_db()   # create / migrate tables
     start_scheduler(app)  # no-op unless SCHEDULER_ENABLED=true
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=settings.PORT, debug=True)
+    app.run(host='0.0.0.0', port=settings.PORT, debug=True)
