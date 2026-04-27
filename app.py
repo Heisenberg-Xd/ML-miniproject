@@ -63,8 +63,28 @@ def create_app():
 
     @app.route('/api/cache/status', methods=['GET'])
     def cache_status():
-        from services.cache import get_cache_status
+        from services.cache import get_cache_status, CACHE
+        import os
+        print(f"[CACHE DIAGNOSTICS] Worker PID: {os.getpid()} | CACHE id: {id(CACHE)} | Keys: {list(CACHE.keys())}")
         return get_cache_status()
+
+    @app.route('/api/test-cache', methods=['GET'])
+    def test_cache():
+        """Diagnostic endpoint: first call MISS, every subsequent call HIT."""
+        import os
+        from flask import jsonify, make_response
+        from services.cache import get_cache, set_cache, CACHE
+        key = "test_key"
+        print(f"[TEST-CACHE] PID={os.getpid()} | cache id={id(CACHE)} | keys={list(CACHE.keys())}")
+        cached = get_cache(key)
+        if cached:
+            response = make_response(jsonify({'status': 'HIT', 'pid': os.getpid()}))
+            response.headers['X-Cache'] = 'HIT'
+            return response
+        set_cache(key, {'ok': True}, ttl=600)
+        response = make_response(jsonify({'status': 'MISS', 'pid': os.getpid()}))
+        response.headers['X-Cache'] = 'MISS'
+        return response
 
     init_db()   # create / migrate tables
     start_scheduler(app)  # no-op unless SCHEDULER_ENABLED=true
@@ -72,4 +92,6 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=settings.PORT, debug=True)
+    # debug=False prevents the Werkzeug reloader from spawning a second
+    # child process — which would give it a DIFFERENT copy of CACHE in memory.
+    app.run(host='0.0.0.0', port=settings.PORT, debug=False)
