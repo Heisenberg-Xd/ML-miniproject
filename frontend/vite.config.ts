@@ -15,9 +15,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/upload': 'http://127.0.0.1:10000',
-      '/api': 'http://127.0.0.1:10000',
-      '/download': 'http://127.0.0.1:10000',
+      '/upload': process.env.VITE_API_BASE || 'https://cuex-backend.onrender.com',
+      '/api': process.env.VITE_API_BASE || 'https://cuex-backend.onrender.com',
+      '/download': process.env.VITE_API_BASE || 'https://cuex-backend.onrender.com',
     }
   }
 })
