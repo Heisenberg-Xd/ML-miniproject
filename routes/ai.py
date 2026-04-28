@@ -4,7 +4,7 @@ import hashlib
 import pandas as pd
 import numpy as np
 from flask import Blueprint, request, jsonify, make_response
-from services.gemini_service import gemini_client, gemini_generate
+from services.gemini_service import genai, gemini_generate
 from services.cache import get_cache, set_cache
 
 from database import get_connection, text
@@ -128,7 +128,7 @@ def chat_query(user_id):
     is_compound_question = is_data_question and is_advisory_question
 
     # ── Gemini-powered path ────────────────────────────────────────────────────
-    if gemini_client:
+    if genai:
 
         # ── Path A0: Compound question (data + advisory) ───────────────────────
         if is_compound_question:
@@ -498,7 +498,7 @@ def executive_summary(user_id, dataset_id):
 
         # ── Optional Gemini enhancement ────────────────────────────────────────
         ai_headline = None
-        if gemini_client:
+        if genai:
             try:
                 stats_payload = {
                     'total_customers': total_customers,

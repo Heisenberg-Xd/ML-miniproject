@@ -15,12 +15,10 @@ import { WorkspaceSelector } from '../components/WorkspaceSelector';
 import { DatasetSelector } from '../components/DatasetSelector';
 import { DataSourcesPanel } from '../components/DataSourcesPanel';
 import { WebhookCard } from '../components/WebhookCard';
-import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
+import { fetchWithAuth } from '../utils/api';
 import { LogoutButton } from '../components/LogoutButton';
 
 const UploadPage = () => {
-  const apiBase = getApiBaseUrl();
-  const fileInputId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +53,9 @@ const UploadPage = () => {
     formData.append('workspace_id', selectedWorkspaceId.toString());
 
     try {
-      const response = await fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: formData,
+      const response = await fetchWithAuth('/upload', { 
+        method: 'POST', 
+        body: formData 
       });
       const data = await response.json();
       if (response.ok) {
@@ -67,7 +64,8 @@ const UploadPage = () => {
         const details = data?.details ? `\n${JSON.stringify(data.details, null, 2)}` : '';
         setError(`${data.error || 'Upload failed'}${details}`);
       }
-    } catch {
+    } catch (error) {
+      console.error("[API ERROR]", error);
       setError('Connection error');
     } finally {
       setIsLoading(false);
@@ -99,10 +97,9 @@ const UploadPage = () => {
     setIsConnectingSheet(true);
     setSheetError(null);
     try {
-      const response = await fetch(`${apiBase}/api/integrations/google-sheets/connect`, {
+      const response = await fetchWithAuth('/api/integrations/google-sheets/connect', {
         method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspace_id: selectedWorkspaceId, sheet_url: sheetUrl }),
+        body: JSON.stringify({ workspace_id: selectedWorkspaceId, sheet_url: sheetUrl })
       });
       const data = await response.json();
       if (response.ok && data.success) {

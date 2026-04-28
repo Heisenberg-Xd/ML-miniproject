@@ -12,7 +12,6 @@ interface Message {
 
 interface DataChatProps {
   datasetId: string | undefined;
-  apiUrl: string;
 }
 
 const EXAMPLE_QUESTIONS = [

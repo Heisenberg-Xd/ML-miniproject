@@ -32,7 +32,6 @@ site-packages/
 .ipynb_checkpoints/
 
 # ML model artefacts (large binary files – store in cloud/DVC instead)
-*.joblib
 *.pkl
 *.pickle
 *.h5

@@ -5,9 +5,7 @@ import {
   Trash2, ToggleLeft, ToggleRight, Clock, AlertCircle,
   CheckCircle, Loader2, Wifi, WifiOff,
 } from 'lucide-react';
-import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
-
-const API_BASE = getApiBaseUrl();
+import { fetchWithAuth } from '../utils/api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface DataSource {
@@ -222,13 +220,11 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({ workspaceId 
   const fetchSources = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(
-        `${API_BASE}/api/integrations/sources?workspace_id=${workspaceId}`,
-        { headers: getAuthHeaders() }
-      );
+      const res = await fetchWithAuth(`/api/integrations/sources?workspace_id=${workspaceId}`);
       if (res.ok) setSources(await res.json());
       else setError('Failed to load sources.');
-    } catch {
+    } catch (err) {
+      console.error("[API ERROR] Network error loading sources:", err);
       setError('Network error loading sources.');
     } finally {
       setLoading(false);
@@ -238,30 +234,35 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({ workspaceId 
   useEffect(() => { fetchSources(); }, [fetchSources]);
 
   const handleToggleSync = async (sourceId: number, enabled: boolean) => {
-    await fetch(`${API_BASE}/api/integrations/${sourceId}/toggle-sync`, {
-      method: 'POST',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    setSources(prev =>
-      prev.map(s => s.id === sourceId ? { ...s, auto_sync_enabled: enabled } : s)
-    );
+    try {
+      await fetchWithAuth(`/api/integrations/${sourceId}/toggle-sync`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      });
+      setSources(prev =>
+        prev.map(s => s.id === sourceId ? { ...s, auto_sync_enabled: enabled } : s)
+      );
+    } catch (err) {
+      console.error("[API ERROR] Failed to toggle sync:", err);
+    }
   };
 
   const handleRefresh = async (sourceId: number) => {
-    await fetch(`${API_BASE}/api/integrations/${sourceId}/refresh`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-    });
-    await fetchSources();
+    try {
+      await fetchWithAuth(`/api/integrations/${sourceId}/refresh`, { method: 'POST' });
+      await fetchSources();
+    } catch (err) {
+      console.error("[API ERROR] Failed to refresh source:", err);
+    }
   };
 
   const handleDisconnect = async (sourceId: number) => {
-    await fetch(`${API_BASE}/api/integrations/${sourceId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
-    setSources(prev => prev.filter(s => s.id !== sourceId));
+    try {
+      await fetchWithAuth(`/api/integrations/${sourceId}`, { method: 'DELETE' });
+      setSources(prev => prev.filter(s => s.id !== sourceId));
+    } catch (err) {
+      console.error("[API ERROR] Failed to disconnect source:", err);
+    }
   };
 
   if (loading) return (

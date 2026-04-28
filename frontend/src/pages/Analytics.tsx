@@ -13,7 +13,8 @@ import { LogoutButton } from '../components/LogoutButton';
 import { ExecutiveSummary } from '../components/ExecutiveSummary';
 import { StrategyCard, StrategyDetail } from '../components/StrategyCard';
 import type { Strategy } from '../components/StrategyCard';
-import { fetchWithAuth, getAuthHeaders, getApiBaseUrl } from '../utils/api';
+import { fetchWithAuth } from '../utils/api';
+import { API_BASE } from '../config/api';
 
 interface ChartData { labels: string[]; values: number[] }
 interface ScatterPoint { name: string; data: [number, number, string][] }
@@ -60,7 +61,6 @@ const TAB_ITEMS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 const Visualization = () => {
-  const apiBase = getApiBaseUrl();
   const { dataset_id } = useParams<{ dataset_id: string }>();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
@@ -71,7 +71,7 @@ const Visualization = () => {
   const fetchStrategy = async (segmentId: number) => {
     setLoadingSegments(prev => new Set(prev).add(segmentId));
     try {
-      const res = await fetch(`${apiBase}/api/strategy/${dataset_id}/${segmentId}`, { headers: getAuthHeaders() });
+      const res = await fetchWithAuth(`/api/strategy/${dataset_id}/${segmentId}`);
       console.log(`[Strategy ${segmentId}] Cache:`, res.headers.get("X-Cache"));
       const data = await res.json();
       if (data.success) {
@@ -80,7 +80,7 @@ const Visualization = () => {
         console.error('Strategy error:', data.error);
       }
     } catch (err) {
-      console.error('Strategy fetch failed:', err);
+      console.error('[API ERROR] Strategy fetch failed:', err);
     } finally {
       setLoadingSegments(prev => { const s = new Set(prev); s.delete(segmentId); return s; });
     }
@@ -100,11 +100,11 @@ const Visualization = () => {
   const loadAnalyticsData = async () => {
     try {
       const [segRes, spendRes, scatterRes, seasonalRes, rfmRes] = await Promise.all([
-        fetch(`${apiBase}/api/segment-counts/${dataset_id}`, { headers: getAuthHeaders() }),
-        fetch(`${apiBase}/api/spending-by-segment/${dataset_id}`, { headers: getAuthHeaders() }),
-        fetch(`${apiBase}/api/recency-value-scatter/${dataset_id}`, { headers: getAuthHeaders() }),
-        fetch(`${apiBase}/api/seasonal-distribution/${dataset_id}`, { headers: getAuthHeaders() }),
-        fetch(`${apiBase}/api/rfm-scores/${dataset_id}`, { headers: getAuthHeaders() }),
+        fetchWithAuth(`/api/segment-counts/${dataset_id}`),
+        fetchWithAuth(`/api/spending-by-segment/${dataset_id}`),
+        fetchWithAuth(`/api/recency-value-scatter/${dataset_id}`),
+        fetchWithAuth(`/api/seasonal-distribution/${dataset_id}`),
+        fetchWithAuth(`/api/rfm-scores/${dataset_id}`),
       ]);
       
       console.log("[Charts] Cache Headers:", {
@@ -121,7 +121,7 @@ const Visualization = () => {
       if (seasonalRes.ok) setSeasonalData(await seasonalRes.json());
       if (rfmRes.ok)      setRfmScores(await rfmRes.json());
     } catch (err) {
-      console.error('Fetch error', err);
+      console.error('[API ERROR] Fetch error', err);
     }
   };
 
@@ -129,10 +129,10 @@ const Visualization = () => {
     (async () => {
       try {
         await loadAnalyticsData();
-      } catch (err) { console.error('Fetch error', err); }
+      } catch (err) { console.error('[API ERROR] Fetch error', err); }
       finally { setIsLoading(false); }
     })();
-  }, [dataset_id, apiBase]);
+  }, [dataset_id]);
 
   useEffect(() => {
     if (!dataset_id) return;
@@ -153,7 +153,7 @@ const Visualization = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Optimizer status poll failed', err);
+          console.error('[API ERROR] Optimizer status poll failed', err);
         }
       }
     };
@@ -182,7 +182,7 @@ const Visualization = () => {
         setOptimizer(await s.json());
       }
     } catch (err) {
-      console.error('Apply optimizer failed', err);
+      console.error('[API ERROR] Apply optimizer failed', err);
       setOptimizerApplyMsg('Failed to apply optimizer recommendation.');
     } finally {
       setIsApplyingOptimizer(false);
@@ -233,7 +233,14 @@ const Visualization = () => {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <LogoutButton />
-            <a href={`${apiBase}/download`} className="px-5 py-2.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-all font-medium text-sm flex items-center gap-2">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:text-red-300 text-sm font-medium flex items-center gap-2 transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Dataset
+            </button>
+            <a href={`${API_BASE}/download`} className="px-5 py-2.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-all font-medium text-sm flex items-center gap-2">
               <Download className="w-4 h-4" /> Export CSV
             </a>
           </div>
@@ -669,7 +676,7 @@ const Visualization = () => {
         {activeTab === 'chat' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="max-w-3xl mx-auto">
-              <DataChat datasetId={dataset_id} apiUrl={apiBase} />
+              <DataChat datasetId={dataset_id} />
             </div>
           </motion.div>
         )}
@@ -677,7 +684,7 @@ const Visualization = () => {
         {/* ── TAB: EXECUTIVE SUMMARY ────────────────────────────────────────── */}
         {activeTab === 'summary' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <ExecutiveSummary datasetId={dataset_id} apiUrl={apiBase} />
+            <ExecutiveSummary datasetId={dataset_id} />
           </motion.div>
         )}
 
@@ -685,7 +692,7 @@ const Visualization = () => {
         <footer className="mt-16 py-8 border-t border-neutral-900 flex justify-between items-center text-neutral-500 text-xs">
           <div className="flex items-center gap-4">
             <Link to="/" className="hover:text-neutral-300 transition-colors">Home</Link>
-            <a href={`${apiBase}/download`} className="hover:text-neutral-300 transition-colors">Download CSV</a>
+            <a href={`${API_BASE}/download`} className="hover:text-neutral-300 transition-colors">Download CSV</a>
           </div>
           <span>CUE-X Analytics · RFM Engine v2</span>
         </footer>

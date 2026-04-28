@@ -32,7 +32,6 @@ interface SummaryData {
 
 interface ExecutiveSummaryProps {
   datasetId: string | undefined;
-  apiUrl: string;
 }
 
 const SEGMENT_COLORS: Record<string, string> = {
@@ -66,7 +65,7 @@ const RFMBar = ({ label, value }: { label: string; value: number }) => (
   </div>
 );
 
-export const ExecutiveSummary = ({ datasetId, apiUrl }: ExecutiveSummaryProps) => {
+export const ExecutiveSummary = ({ datasetId }: ExecutiveSummaryProps) => {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +86,7 @@ export const ExecutiveSummary = ({ datasetId, apiUrl }: ExecutiveSummaryProps) =
         setIsLoading(false);
       }
     })();
-  }, [datasetId, apiUrl]);
+  }, [datasetId]);
 
   if (isLoading) {
     return (

@@ -1,3 +1,8 @@
+# Render Start Command:
+# gunicorn "app:create_app()" --workers 1 --threads 4 --bind 0.0.0.0:$PORT
+
+print("[BOOT] Loading ML models...")
+
 from flask import Flask
 from flask_cors import CORS
 from config import settings
@@ -7,7 +12,7 @@ from routes.ai import ai_bp
 from routes.workspaces import workspace_bp
 from routes.auth import auth_bp
 from routes.integrations import integrations_bp
-from database import init_db
+from database import init_db, engine
 from scheduler import start_scheduler
 
 
@@ -39,22 +44,24 @@ validate_config()
 
 
 def create_app():
+    import os
+    print("[BOOT] App starting...")
+    print("[BOOT] Environment:", os.getenv("RENDER", "local"))
+    
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+    app.config["CORS_HEADERS"] = "Content-Type"
+
     CORS(
         app,
-        resources={
-            r"/*": {
-                "origins": [
-                    "http://localhost:5173",
-                    "http://127.0.0.1:5173",
-                ],
-                "allow_headers": ["Authorization", "Content-Type"],
-                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            }
-        },
+        origins=[
+            "http://localhost:5173",
+            "https://cuex.vercel.app"
+        ],
         supports_credentials=True,
-        expose_headers=["X-Cache"],
+        allow_headers=["Content-Type", "Authorization"],
+        expose_headers=["X-Cache"]
     )
     app.register_blueprint(upload_bp)
     app.register_blueprint(charts_bp)
@@ -62,6 +69,21 @@ def create_app():
     app.register_blueprint(workspace_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(integrations_bp)
+
+    @app.route('/api/health', methods=['GET'])
+    def health_check():
+        """Lightweight liveness + DB connectivity probe."""
+        from flask import jsonify
+        from sqlalchemy import text as _text
+        db_status = "disconnected"
+        if engine is not None:
+            try:
+                with engine.connect() as _conn:
+                    _conn.execute(_text("SELECT 1"))
+                db_status = "connected"
+            except Exception as exc:
+                db_status = f"error: {type(exc).__name__}"
+        return jsonify({"status": "ok", "database": db_status})
 
     @app.route('/api/cache/status', methods=['GET'])
     def cache_status():
@@ -96,4 +118,6 @@ if __name__ == '__main__':
     app = create_app()
     # debug=False prevents the Werkzeug reloader from spawning a second
     # child process — which would give it a DIFFERENT copy of CACHE in memory.
-    app.run(host='0.0.0.0', port=settings.PORT, debug=False)
+    import os
+    PORT = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=PORT, debug=False)

@@ -28,15 +28,18 @@ class Settings:
     RFM_MODEL_PATH  = os.path.join(MODEL_DIR, "rfm_kmeans_model.joblib")
     RFM_SCALER_PATH = os.path.join(MODEL_DIR, "rfm_scaler.joblib")
     RFM_MAP_PATH    = os.path.join(MODEL_DIR, "rfm_segment_map.json")
-    KMEANS_PATH     = os.path.join(MODEL_DIR, "kmeans_model.joblib")
-    SCALER_PATH     = os.path.join(MODEL_DIR, "scaler.joblib")
 
     # ── Environment / Secrets ────────────────────────────────────────────────
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    BASE_URL       = os.getenv("BASE_URL", "http://localhost:10000")
+    BASE_URL       = os.getenv("BASE_URL")
     PORT           = int(os.getenv("PORT", 10000))
-    DATABASE_URL   = os.getenv("DATABASE_URL", "")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default-dev-secret-key")
+    FRONTEND_URL   = os.getenv("FRONTEND_URL", "")
+
+    # Normalize DATABASE_URL: Render may issue the legacy postgres:// scheme
+    # which SQLAlchemy 1.4+ does not accept — fix it transparently.
+    _raw_db_url    = os.getenv("DATABASE_URL", "")
+    DATABASE_URL   = _raw_db_url.replace("postgres://", "postgresql://", 1) if _raw_db_url else ""
 
     # ── Clustering Optimizer ─────────────────────────────────────────────────
     OPTIMIZER_ENABLED    = True
@@ -83,13 +86,12 @@ PORT                           = settings.PORT
 DATABASE_URL                   = settings.DATABASE_URL
 JWT_SECRET_KEY                 = settings.JWT_SECRET_KEY
 GEMINI_API_KEY                 = settings.GEMINI_API_KEY
+FRONTEND_URL                   = settings.FRONTEND_URL
 UPLOAD_FOLDER                  = settings.UPLOAD_FOLDER
 MODEL_DIR                      = settings.MODEL_DIR
 RFM_MODEL_PATH                 = settings.RFM_MODEL_PATH
 RFM_SCALER_PATH                = settings.RFM_SCALER_PATH
 RFM_MAP_PATH                   = settings.RFM_MAP_PATH
-KMEANS_PATH                    = settings.KMEANS_PATH
-SCALER_PATH                    = settings.SCALER_PATH
 OPTIMIZER_ENABLED              = settings.OPTIMIZER_ENABLED
 OPTIMIZER_MIN_K                = settings.OPTIMIZER_MIN_K
 OPTIMIZER_MAX_K                = settings.OPTIMIZER_MAX_K
